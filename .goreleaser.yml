@@ -1,0 +1,10 @@
+builds:
+  - main: ./cmd/sss-idmap
+    id: "sss-idmap"
+    binary: sss-idmap
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
