@@ -48,5 +48,7 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
       - run: go mod download
+      - name: Install build dependencies
+        run: sudo apt install -y pkg-config libsss-idmap-dev
       - run: make test
         timeout-minutes: 10
