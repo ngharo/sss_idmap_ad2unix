@@ -153,3 +153,47 @@ func SIDToUnixID(sid string) (uint32, error) {
 
 	return ctx.SIDToUnixID(sid)
 }
+
+// DecodeSID converts a binary SID to string format
+// https://ldapwiki.com/wiki/Wiki.jsp?page=ObjectSID
+func DecodeSID(sid []byte) (string, error) {
+	if len(sid) < 8 {
+		return "", fmt.Errorf("SID too short: %d bytes", len(sid))
+	}
+
+	// Get revision level
+	revision := sid[0]
+
+	// Get count of sub-authorities
+	subAuthCount := int(sid[1])
+
+	// Validate length
+	expectedLen := 8 + (subAuthCount * 4)
+	if len(sid) != expectedLen {
+		return "", fmt.Errorf("invalid SID length: expected %d, got %d", expectedLen, len(sid))
+	}
+
+	// Build the SID string
+	var result string
+	result = fmt.Sprintf("S-%d", revision)
+
+	// Process 48-bit authority (Big-Endian)
+	var authority uint64
+	for i := 2; i <= 7; i++ {
+		authority |= uint64(sid[i]) << (8 * uint(5-(i-2)))
+	}
+	result += fmt.Sprintf("-%d", authority)
+
+	// Process sub-authorities (Little-Endian)
+	offset := 8
+	for j := 0; j < subAuthCount; j++ {
+		var subAuth uint32
+		for k := 0; k < 4; k++ {
+			subAuth |= uint32(sid[offset+k]) << (8 * uint(k))
+		}
+		result += fmt.Sprintf("-%d", subAuth)
+		offset += 4
+	}
+
+	return result, nil
+}

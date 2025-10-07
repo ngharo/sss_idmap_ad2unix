@@ -1,6 +1,7 @@
 package idmap_test
 
 import (
+	"encoding/hex"
 	"errors"
 	"testing"
 
@@ -311,6 +312,92 @@ func TestSIDToUnixID(t *testing.T) {
 			if gotUnixID < tt.config.IDRange.Min || gotUnixID > tt.config.IDRange.Max {
 				t.Errorf("SIDToUnixID(%q) = %d, outside range [%d, %d]",
 					tt.sid, gotUnixID, tt.config.IDRange.Min, tt.config.IDRange.Max)
+			}
+		})
+	}
+}
+
+func TestDecodeSID(t *testing.T) {
+	tests := []struct {
+		name    string
+		hexSID  string
+		wantSID string
+		wantErr bool
+	}{
+		{
+			name:    "example",
+			hexSID:  "01050000000000051500000025ec493a619500b06dc9700a2fe80500",
+			wantSID: "S-1-5-21-977923109-2952828257-175163757-387119",
+			wantErr: false,
+		},
+		{
+			name:    "EXAMPLE domain administrator",
+			hexSID:  "010500000000000515000000c7f7fed77c7755c8945ace01f4010000",
+			wantSID: "S-1-5-21-3623811015-3361044348-30300820-500",
+			wantErr: false,
+		},
+		{
+			name:    "EXAMPLE domain user 1013",
+			hexSID:  "010500000000000515000000c7f7fed77c7755c8945ace01f5030000",
+			wantSID: "S-1-5-21-3623811015-3361044348-30300820-1013",
+			wantErr: false,
+		},
+		{
+			name:    "well-known SID - Everyone",
+			hexSID:  "010100000000000100000000",
+			wantSID: "S-1-1-0",
+			wantErr: false,
+		},
+		{
+			name:    "well-known SID - Local System",
+			hexSID:  "010100000000000512000000",
+			wantSID: "S-1-5-18",
+			wantErr: false,
+		},
+		{
+			name:    "well-known SID - Authenticated Users",
+			hexSID:  "010100000000000512000000",
+			wantSID: "S-1-5-18",
+			wantErr: false,
+		},
+		{
+			name:    "SID too short - only 7 bytes",
+			hexSID:  "01050000000000",
+			wantSID: "",
+			wantErr: true,
+		},
+		{
+			name:    "SID too short - empty",
+			hexSID:  "",
+			wantSID: "",
+			wantErr: true,
+		},
+		{
+			name:    "invalid length - header says 5 sub-authorities but data missing",
+			hexSID:  "010500000000000515000000",
+			wantSID: "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sidBytes, _ := hex.DecodeString(tt.hexSID)
+			gotSID, err := idmap.DecodeSID(sidBytes)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("DecodeSID() expected error, got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("DecodeSID() unexpected error: %v", err)
+			}
+
+			if gotSID != tt.wantSID {
+				t.Errorf("DecodeSID() = %q, want %q", gotSID, tt.wantSID)
 			}
 		})
 	}
